@@ -53,8 +53,9 @@ def make_generator_model():
 
 # run generator
 generator = make_generator_model()
-#
-# noise = tf.random.normal([1, 100])
-# generated_image = generator(noise, training=False)
-#
-# plt.imshow(generated_image[0, :, :, 0], cmap='gray')
+
+noise = tf.random.normal([1, 100])
+generated_image = generator(noise, training=False)
+
+plt.imshow(generated_image[0, :, :, 0], cmap='gray')
+plt.show()
