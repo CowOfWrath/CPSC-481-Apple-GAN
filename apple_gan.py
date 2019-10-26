@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 import PIL
+from PIL import Image
 from tensorflow.keras import layers
 import time
 
@@ -17,15 +18,42 @@ from IPython import display
 
 print(tf.__version__)
 
-# Create MNIST DATASET
-(train_images, train_labels), (_, _) = tf.keras.datasets.mnist.load_data()
-train_images = train_images.reshape(train_images.shape[0], 28, 28, 1).astype('float32')
-train_images = (train_images - 127.5) / 127.5  # Normalize the images to [-1, 1]
+
+def get_label(file_path):
+    # convert the path to a list of path components
+    parts = tf.strings.split(file_path, '/')
+    # The second to last is the class-directory
+    return parts[-2]
+
+
+def decode_img(img):
+    # convert the compressed string to a 3D uint8 tensor
+    img = tf.image.decode_jpeg(img, channels=3)
+    # Use `convert_image_dtype` to convert to floats in the [0,1] range.
+    img = tf.image.convert_image_dtype(img, tf.float32)
+    # resize the image to the desired size.
+    return tf.image.resize(img, [28, 28])
+
+
+def process_path(file_path):
+    label = get_label(file_path)
+    # load the raw data from the file as a string
+    img = tf.io.read_file(file_path)
+    img = decode_img(img)
+    return img#, label
+
+
 BUFFER_SIZE = 60000
 BATCH_SIZE = 256
 
+filename_dataset = tf.data.Dataset.list_files("Apple/*/*.jpg")
+
+image_dataset = filename_dataset.map(process_path)
+train_dataset = image_dataset.shuffle(BUFFER_SIZE).batch(BATCH_SIZE)
+
+
 # Batch and shuffle the data
-train_dataset = tf.data.Dataset.from_tensor_slices(train_images).shuffle(BUFFER_SIZE).batch(BATCH_SIZE)
+# train_dataset = tf.data.Dataset.from_tensor_slices(image_dataset).shuffle(BUFFER_SIZE).batch(BATCH_SIZE)
 
 
 # Generator Model
@@ -48,8 +76,8 @@ def make_generator_model():
     model.add(layers.BatchNormalization())
     model.add(layers.LeakyReLU())
 
-    model.add(layers.Conv2DTranspose(1, (5, 5), strides=(2, 2), padding='same', use_bias=False, activation='tanh'))
-    assert model.output_shape == (None, 28, 28, 1)
+    model.add(layers.Conv2DTranspose(3, (5, 5), strides=(2, 2), padding='same', use_bias=False, activation='tanh'))
+    assert model.output_shape == (None, 28, 28, 3)
 
     return model
 
@@ -67,7 +95,7 @@ plt.imshow(generated_image[0, :, :, 0], cmap='gray')
 def make_discriminator_model():
     model = tf.keras.Sequential()
     model.add(layers.Conv2D(64, (5, 5), strides=(2, 2), padding='same',
-                            input_shape=[28, 28, 1]))
+                            input_shape=[28, 28, 3]))
     model.add(layers.LeakyReLU())
     model.add(layers.Dropout(0.3))
 
@@ -110,7 +138,7 @@ checkpoint = tf.train.Checkpoint(generator_optimizer=generator_optimizer,
                                  generator=generator,
                                  discriminator=discriminator)
 
-EPOCHS = 50
+EPOCHS = 1000
 noise_dim = 100
 num_examples_to_generate = 16
 
@@ -175,7 +203,7 @@ def generate_and_save_images(model, epoch, test_input):
 
     for i in range(predictions.shape[0]):
         plt.subplot(4, 4, i + 1)
-        plt.imshow(predictions[i, :, :, 0] * 127.5 + 127.5, cmap='gray')
+        plt.imshow(predictions[i, :, :, 0] * 127.5 + 127.5, cmap='gist_rainbow')
         plt.axis('off')
 
     plt.savefig('image_at_epoch_{:04d}.png'.format(epoch))
