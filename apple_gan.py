@@ -32,7 +32,7 @@ def decode_img(img):
     # Use `convert_image_dtype` to convert to floats in the [0,1] range.
     img = tf.image.convert_image_dtype(img, tf.float32)
     # resize the image to the desired size.
-    return tf.image.resize(img, [28, 28])
+    return tf.image.resize(img, [128, 128])
 
 
 def process_path(file_path):
@@ -40,7 +40,7 @@ def process_path(file_path):
     # load the raw data from the file as a string
     img = tf.io.read_file(file_path)
     img = decode_img(img)
-    return img#, label
+    return img  # , label
 
 
 BUFFER_SIZE = 60000
@@ -59,25 +59,30 @@ train_dataset = image_dataset.shuffle(BUFFER_SIZE).batch(BATCH_SIZE)
 # Generator Model
 def make_generator_model():
     model = tf.keras.Sequential()
-    model.add(layers.Dense(7 * 7 * 256, use_bias=False, input_shape=(100,)))
+    model.add(layers.Dense(8 * 8 * 64, use_bias=False, input_shape=(128,)))
     model.add(layers.BatchNormalization())
     model.add(layers.LeakyReLU())
 
-    model.add(layers.Reshape((7, 7, 256)))
-    assert model.output_shape == (None, 7, 7, 256)  # Note: None is the batch size
-
-    model.add(layers.Conv2DTranspose(128, (5, 5), strides=(1, 1), padding='same', use_bias=False))
-    assert model.output_shape == (None, 7, 7, 128)
-    model.add(layers.BatchNormalization())
-    model.add(layers.LeakyReLU())
+    model.add(layers.Reshape((8, 8, 64)))
+    assert model.output_shape == (None, 8, 8, 64)  # Note: None is the batch size
 
     model.add(layers.Conv2DTranspose(64, (5, 5), strides=(2, 2), padding='same', use_bias=False))
-    assert model.output_shape == (None, 14, 14, 64)
+    assert model.output_shape == (None, 16, 16, 64)
+    model.add(layers.BatchNormalization())
+    model.add(layers.LeakyReLU())
+
+    model.add(layers.Conv2DTranspose(32, (5, 5), strides=(2, 2), padding='same', use_bias=False))
+    assert model.output_shape == (None, 32, 32, 32)
+    model.add(layers.BatchNormalization())
+    model.add(layers.LeakyReLU())
+
+    model.add(layers.Conv2DTranspose(16, (5, 5), strides=(2, 2), padding='same', use_bias=False))
+    assert model.output_shape == (None, 64, 64, 16)
     model.add(layers.BatchNormalization())
     model.add(layers.LeakyReLU())
 
     model.add(layers.Conv2DTranspose(3, (5, 5), strides=(2, 2), padding='same', use_bias=False, activation='tanh'))
-    assert model.output_shape == (None, 28, 28, 3)
+    assert model.output_shape == (None, 128, 128, 3)
 
     return model
 
@@ -85,17 +90,18 @@ def make_generator_model():
 # run generator
 generator = make_generator_model()
 
-noise = tf.random.normal([1, 100])
-generated_image = generator(noise, training=False)
-plt.imshow(generated_image[0, :, :, 0], cmap='gray')
 
+# noise = tf.random.normal([1, 100])
+# generated_image = generator(noise, training=False)
+# plt.imshow(generated_image[0, :, :, 0], cmap='gray')
+#
 
 # plt.show()
 
 def make_discriminator_model():
     model = tf.keras.Sequential()
     model.add(layers.Conv2D(64, (5, 5), strides=(2, 2), padding='same',
-                            input_shape=[28, 28, 3]))
+                            input_shape=[128, 128, 3]))
     model.add(layers.LeakyReLU())
     model.add(layers.Dropout(0.3))
 
@@ -110,8 +116,8 @@ def make_discriminator_model():
 
 
 discriminator = make_discriminator_model()
-decision = discriminator(generated_image)
-print(decision)
+# decision = discriminator(generated_image)
+# print(decision)
 
 # This method returns a helper function to compute cross entropy loss
 cross_entropy = tf.keras.losses.BinaryCrossentropy(from_logits=True)
@@ -139,8 +145,8 @@ checkpoint = tf.train.Checkpoint(generator_optimizer=generator_optimizer,
                                  discriminator=discriminator)
 
 EPOCHS = 1000
-noise_dim = 100
-num_examples_to_generate = 16
+noise_dim = 128
+num_examples_to_generate = 1
 
 # We will reuse this seed overtime (so it's easier)
 # to visualize progress in the animated GIF)
@@ -189,9 +195,7 @@ def train(dataset, epochs):
 
     # Generate after the final epoch
     display.clear_output(wait=True)
-    generate_and_save_images(generator,
-                             epochs,
-                             seed)
+    generate_and_save_images(generator, epochs, seed)
 
 
 def generate_and_save_images(model, epoch, test_input):
@@ -199,14 +203,14 @@ def generate_and_save_images(model, epoch, test_input):
     # This is so all layers run in inference mode (batchnorm).
     predictions = model(test_input, training=False)
 
-    fig = plt.figure(figsize=(4, 4))
+    fig = plt.figure(figsize=(1, 1))
 
-    for i in range(predictions.shape[0]):
-        plt.subplot(4, 4, i + 1)
-        plt.imshow(predictions[i, :, :, 0] * 127.5 + 127.5, cmap='gist_rainbow')
-        plt.axis('off')
+    plt.imshow(predictions[0, :, :, 0], cmap='gray')
+    plt.axis('off')
 
     plt.savefig('image_at_epoch_{:04d}.png'.format(epoch))
+    fig.clear()
+    plt.close(fig)
     # plt.show()
 
 
