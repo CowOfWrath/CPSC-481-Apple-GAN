@@ -28,7 +28,7 @@ def get_label(file_path):
 
 def decode_img(img):
     # convert the compressed string to a 3D uint8 tensor
-    img = tf.image.decode_jpeg(img, channels=3)
+    img = tf.image.decode_jpeg(img, channels=1)
     # Use `convert_image_dtype` to convert to floats in the [0,1] range.
     img = tf.image.convert_image_dtype(img, tf.float32)
     # resize the image to the desired size.
@@ -43,8 +43,8 @@ def process_path(file_path):
     return img  # , label
 
 
-BUFFER_SIZE = 60000
-BATCH_SIZE = 256
+BUFFER_SIZE = 10000
+BATCH_SIZE = 200
 
 filename_dataset = tf.data.Dataset.list_files("Apple/*/*.jpg")
 
@@ -59,7 +59,7 @@ train_dataset = image_dataset.shuffle(BUFFER_SIZE).batch(BATCH_SIZE)
 # Generator Model
 def make_generator_model():
     model = tf.keras.Sequential()
-    model.add(layers.Dense(8 * 8 * 64, use_bias=False, input_shape=(128,)))
+    model.add(layers.Dense(8 * 8 * 64, use_bias=False, input_shape=(100,)))
     model.add(layers.BatchNormalization())
     model.add(layers.LeakyReLU())
 
@@ -81,8 +81,8 @@ def make_generator_model():
     model.add(layers.BatchNormalization())
     model.add(layers.LeakyReLU())
 
-    model.add(layers.Conv2DTranspose(3, (5, 5), strides=(2, 2), padding='same', use_bias=False, activation='tanh'))
-    assert model.output_shape == (None, 128, 128, 3)
+    model.add(layers.Conv2DTranspose(1, (5, 5), strides=(2, 2), padding='same', use_bias=False, activation='tanh'))
+    assert model.output_shape == (None, 128, 128, 1)
 
     return model
 
@@ -100,12 +100,16 @@ generator = make_generator_model()
 
 def make_discriminator_model():
     model = tf.keras.Sequential()
-    model.add(layers.Conv2D(64, (5, 5), strides=(2, 2), padding='same',
-                            input_shape=[128, 128, 3]))
+    model.add(layers.Conv2D(128, (5, 5), strides=(2, 2), padding='same',
+                            input_shape=[128, 128, 1]))
     model.add(layers.LeakyReLU())
     model.add(layers.Dropout(0.3))
 
-    model.add(layers.Conv2D(128, (5, 5), strides=(2, 2), padding='same'))
+    model.add(layers.Conv2D(64, (5, 5), strides=(2, 2), padding='same'))
+    model.add(layers.LeakyReLU())
+    model.add(layers.Dropout(0.3))
+
+    model.add(layers.Conv2D(32, (5, 5), strides=(2, 2), padding='same'))
     model.add(layers.LeakyReLU())
     model.add(layers.Dropout(0.3))
 
@@ -144,8 +148,8 @@ checkpoint = tf.train.Checkpoint(generator_optimizer=generator_optimizer,
                                  generator=generator,
                                  discriminator=discriminator)
 
-EPOCHS = 1000
-noise_dim = 128
+EPOCHS = 5000
+noise_dim = 100
 num_examples_to_generate = 1
 
 # We will reuse this seed overtime (so it's easier)
