@@ -1,5 +1,6 @@
 import os
 import random
+import tkinter.messagebox
 from tkinter import *
 
 window = Tk()
@@ -20,24 +21,26 @@ def destroy_window():
     exit()
 
 
-def retry():
-    pass
-
-
 def isReal():
     if int(rand[:-4]) < 1000:
-        Label(window, text="Congratulations!\n", font="none 12 bold").grid(row=4, column=0, sticky=N)
+        response = tkinter.messagebox.askokcancel("", "Congratulations!\nDo you want to play again?")
     else:
-        Label(window, text="Fooled you!\n", font="none 12 bold").grid(row=4, column=0, sticky=N)
-    Button(window, text="RETRY", width=10, command=retry).grid(row=5, column=0, sticky=N)
+        response = tkinter.messagebox.askokcancel("", "Fooled you!\nDo you want to play again?")
+    if response:
+        pass
+    else:
+        destroy_window()
 
 
 def isGenerated():
     if int(rand[:-4]) >= 1000:
-        Label(window, text="Congratulations!\n", font="none 12 bold").grid(row=3, column=0, sticky=N)
+        response = tkinter.messagebox.askokcancel("", "Congratulations!\nDo you want to play again?")
     else:
-        Label(window, text="Fooled you!\n", font="none 12 bold").grid(row=4, column=0, sticky=N)
-    Button(window, text="RETRY", width=10, command=retry).grid(row=5, column=0, sticky=N)
+        response = tkinter.messagebox.askokcancel("", "Fooled you!\nDo you want to play again?")
+    if response:
+        pass
+    else:
+        destroy_window()
 
 
 Button(window, text="REAL", width=10, command=isReal).grid(row=2, column=0, sticky=W)
