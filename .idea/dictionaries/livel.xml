@@ -2,9 +2,13 @@
   <dictionary name="livel">
     <words>
       <w>cpsc</w>
+      <w>dataset</w>
+      <w>dtype</w>
       <w>gifs</w>
       <w>grayscales</w>
+      <w>imshow</w>
       <w>livel</w>
+      <w>uint</w>
     </words>
   </dictionary>
 </component>
