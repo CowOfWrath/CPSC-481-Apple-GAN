@@ -52,10 +52,6 @@ image_dataset = filename_dataset.map(process_path)
 train_dataset = image_dataset.shuffle(BUFFER_SIZE).batch(BATCH_SIZE)
 
 
-# Batch and shuffle the data
-# train_dataset = tf.data.Dataset.from_tensor_slices(image_dataset).shuffle(BUFFER_SIZE).batch(BATCH_SIZE)
-
-
 # Generator Model
 def make_generator_model():
     model = tf.keras.Sequential()
@@ -87,17 +83,6 @@ def make_generator_model():
     return model
 
 
-# run generator
-generator = make_generator_model()
-
-
-# noise = tf.random.normal([1, 100])
-# generated_image = generator(noise, training=False)
-# plt.imshow(generated_image[0, :, :, 0], cmap='gray')
-#
-
-# plt.show()
-
 def make_discriminator_model():
     model = tf.keras.Sequential()
     model.add(layers.Conv2D(128, (5, 5), strides=(2, 2), padding='same',
@@ -119,14 +104,6 @@ def make_discriminator_model():
     return model
 
 
-discriminator = make_discriminator_model()
-# decision = discriminator(generated_image)
-# print(decision)
-
-# This method returns a helper function to compute cross entropy loss
-cross_entropy = tf.keras.losses.BinaryCrossentropy(from_logits=True)
-
-
 def discriminator_loss(real_output, fake_output):
     real_loss = cross_entropy(tf.ones_like(real_output), real_output)
     fake_loss = cross_entropy(tf.zeros_like(fake_output), fake_output)
@@ -136,25 +113,6 @@ def discriminator_loss(real_output, fake_output):
 
 def generator_loss(fake_output):
     return cross_entropy(tf.ones_like(fake_output), fake_output)
-
-
-generator_optimizer = tf.keras.optimizers.Adam(1e-4)
-discriminator_optimizer = tf.keras.optimizers.Adam(1e-4)
-
-checkpoint_dir = './training_checkpoints'
-checkpoint_prefix = os.path.join(checkpoint_dir, "ckpt")
-checkpoint = tf.train.Checkpoint(generator_optimizer=generator_optimizer,
-                                 discriminator_optimizer=discriminator_optimizer,
-                                 generator=generator,
-                                 discriminator=discriminator)
-
-EPOCHS = 5000
-noise_dim = 100
-num_examples_to_generate = 1
-
-# We will reuse this seed overtime (so it's easier)
-# to visualize progress in the animated GIF)
-seed = tf.random.normal([num_examples_to_generate, noise_dim])
 
 
 # Notice the use of `tf.function`
@@ -182,7 +140,7 @@ def train_step(images):
 def train(dataset, epochs):
     # restore latest checkpoint
     checkpoint.restore(tf.train.latest_checkpoint(checkpoint_dir))
-    for epoch in range(epochs):
+    for epoch in range(last_epoch, (last_epoch + epochs)):
         start = time.time()
         for image_batch in dataset:
             train_step(image_batch)
@@ -207,18 +165,51 @@ def generate_and_save_images(model, epoch, test_input):
     # This is so all layers run in inference mode (batchnorm).
     predictions = model(test_input, training=False)
 
-    fig = plt.figure(figsize=(1, 1))
-
+    # fig = plt.figure(figsize=(1, 1))
+    fig = plt.figure(figsize=(1, 1), frameon=False)
+    ax = plt.Axes(fig, [0., 0., 1., 1.])
+    ax.set_axis_off()
+    fig.add_axes(ax)
     plt.imshow(predictions[0, :, :, 0], cmap='gray')
-    plt.axis('off')
+    # plt.axis('off')
 
     plt.savefig('image_at_epoch_{:04d}.png'.format(epoch))
+    # plt.savefig('fake_{:04d}.png'.format(epoch))
     fig.clear()
     plt.close(fig)
     # plt.show()
 
 
+generator = make_generator_model()
+discriminator = make_discriminator_model()
+cross_entropy = tf.keras.losses.BinaryCrossentropy(from_logits=True)
+
+generator_optimizer = tf.keras.optimizers.Adam(1e-4)
+discriminator_optimizer = tf.keras.optimizers.Adam(1e-4)
+
+checkpoint_dir = './training_checkpoints'
+checkpoint_prefix = os.path.join(checkpoint_dir, "ckpt")
+checkpoint = tf.train.Checkpoint(generator_optimizer=generator_optimizer,
+                                 discriminator_optimizer=discriminator_optimizer,
+                                 generator=generator,
+                                 discriminator=discriminator)
+
+last_epoch = 10000
+EPOCHS = 10000
+noise_dim = 100
+num_examples_to_generate = 1
+
+# We will reuse this seed overtime (so it's easier)
+# to visualize progress in the animated GIF)
+seed = tf.random.normal([num_examples_to_generate, noise_dim])
+
 train(train_dataset, EPOCHS)
+
+
+# checkpoint.restore(tf.train.latest_checkpoint(checkpoint_dir))
+# for epoch in range(1, 1000):
+#     seed = tf.random.normal([num_examples_to_generate, noise_dim])
+#     generate_and_save_images(generator, epoch, seed)
 
 
 # Display a single image using the epoch number
